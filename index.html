@@ -237,6 +237,15 @@ body:not(.ads-on) .adslot{display:none!important}
 </div>
 <script>
 (function(){
+/* GA4 custom events (Games by Zaib). Safe: never throws, light (no per-frame calls, dedupe + per-page cap). */
+var ZT_N = 0, ZT_K = '', ZT_KT = 0, ZT_T = 0, ZT_S = 0, ZT_H = 0;
+function zt(n, p) { try { var k = n + JSON.stringify(p || 0), t = Date.now(); if (ZT_N > 150 || (k === ZT_K && t - ZT_KT < 500)) return; ZT_N++; ZT_K = k; ZT_KT = t; window.gtag && gtag('event', n, Object.assign({ game_id: 'neon-dash' }, p)); } catch (e) {} }
+function ztPlay(on) { try { var t = Date.now(); if (ZT_S) { ZT_T += (t - ZT_S) / 1e3; ZT_S = 0; } if (on) ZT_S = t; } catch (e) {} }
+function ztPing(r) { try { ztPlay(false); if (ZT_T >= 1) zt('play_time', { play_time: Math.round(ZT_T), reason: r }); ZT_T = 0; } catch (e) {} }
+try {
+  document.addEventListener('visibilitychange', function () { if (document.hidden) { ZT_H = !!ZT_S; ztPing('page_hide'); } else if (ZT_H) { ZT_H = 0; ztPlay(true); } });
+  document.addEventListener('click', function (e) { try { var a = e.target && e.target.closest && e.target.closest('a[href]'); if (!a) return; var u = new URL(a.href, location.href); if (!/^https?:$/.test(u.protocol)) return; if (u.host === location.host || /(^|\.)zaibgames\.com$/.test(u.host)) { if (u.pathname.indexOf('/neon-dash/') !== 0) zt('more_games_click', { link_url: u.href }); } else zt('outbound_click', { link_url: u.href, link_domain: u.host, outbound: true }); } catch (err) {} }, true);
+} catch (e) {}
 "use strict";
 /* ===== Neon Dash by Zaib — core: data, save, level generation, physics, solver ===== */
 const $=id=>document.getElementById(id);
@@ -483,7 +492,14 @@ function startLevel(n){
   updCoins();updProg(true);
   G.hint=n<=2&&G.att[n]<=2;$("tapHint").classList.toggle("hidden",!G.hint);
   musicStart(n-1);
+  if(!ndStarted){ndStarted=1;zt("game_start",{mode:"levels",level:n});}
+  if(G.att[n]===1){zt("level_start",{level:n});if(n===1&&!S.bests[1])zt("tutorial_begin",{});}
+  ztPlay(true);
 }
+// GA4: light, throttled reporting (runs are short, so crashes are sampled and coins batched)
+let ndStarted=0,ndCoins=0;
+function ndFlushCoins(why){if(ndCoins>0){zt("earn_virtual_currency",{virtual_currency_name:"coins",value:ndCoins,item_name:why});ndCoins=0;}}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)ndFlushCoins("run_coins");});
 function goTitle(){
   G.mode="title";$("hud").classList.add("hidden");$("tapHint").classList.add("hidden");
   setupRun(S.level,true);G.parts.length=0;show("sTitle");updTitle();musicStart(S.level-1);
@@ -501,6 +517,9 @@ function crash(){
   G.mode="dead";G.endT=0;G.held=false;
   if(pct>(S.bests[L.n]||0)){S.bests[L.n]=pct;G.newBest=G.lastBest>0||pct>=10;}
   save();
+  {const a=G.att[L.n]||1;ndCoins+=G.runCoins||0;ztPlay(false);
+   if(a<=3||a%10===0||G.newBest){zt("game_over",{score:pct,level:L.n,attempt:a});if(G.newBest)zt("post_score",{score:pct,level:L.n});ndFlushCoins("run_coins");}
+   if(ZT_T>=60)ztPing("game_over");}
   const c=COLORS[S.skin];burst(PX+15,st.y+15,c,34,7,7,.25);burst(PX+15,st.y+15,"#ffffff",14,5,4,.2);
   G.shake=16;G.flash=.55;G.flashC="#ff3864";sfx("crash");vib(130);musicStop();updProg(true);
 }
@@ -508,6 +527,8 @@ function finish(){
   const L=G.L;G.mode="win";G.endT=0;G.held=false;
   S.bests[L.n]=100;S.unlocked=Math.max(S.unlocked,Math.min(MAXL,L.n+1));S.coins+=5;
   if(L.n<MAXL)S.level=L.n+1;save();updCoins();updProg(true);
+  zt("level_end",{level:L.n,success:true,attempt:G.att[L.n]||1});if(G.lastBest<100)zt("post_score",{score:100,level:L.n});if(L.n===1&&G.lastBest<100)zt("tutorial_complete",{});
+  ndCoins+=5+(G.runCoins||0);ndFlushCoins("level_clear");ztPing("level_clear");
   for(let i=0;i<5;i++)setTimeout(()=>{if(G.mode==="win")burst(G.VW*(.25+Math.random()*.5),GROUND-150-Math.random()*80,COLORS[(Math.random()*44)|0],26,6,6,.12);},i*140);
   G.flash=.45;G.flashC="#ffffff";G.shake=5;sfx("win");vib([30,50,30]);musicStop();
 }
@@ -772,7 +793,7 @@ on("bHelpBack",()=>{sfx("click");if(back==="play")startLevel(S.level);else goTit
 on("bReset",()=>{sfx("click");show("sConfirm");});
 on("bNo",()=>{sfx("click");updToggles();show("sSettings");});
 on("bYes",()=>{const keep={sound:S.sound,music:S.music,vibe:S.vibe};S=Object.assign(defSave(),keep,{helpSeen:1});save();sfx("click");toast("Progress reset");updToggles();setupRun(1,true);show("sSettings");});
-document.querySelectorAll(".tog").forEach(t=>t.addEventListener("click",()=>{auInit();const k=t.dataset.set;S[k]=S[k]?0:1;save();updToggles();
+document.querySelectorAll(".tog").forEach(t=>t.addEventListener("click",()=>{auInit();const k=t.dataset.set;S[k]=S[k]?0:1;zt("settings_change",{setting:k,value:String(S[k])});save();updToggles();
   if(k==="music"){if(S.music)musicStart(S.level-1);else musicStop();}if(k==="vibe"&&S.vibe)vib(40);sfx("click");}));
 on("bPause",()=>{sfx("click");pauseGame();});
 on("bResume",()=>{sfx("click");resumeGame();});
@@ -787,7 +808,7 @@ $("lvGrid").addEventListener("click",e=>{const b=e.target.closest(".lvb");if(!b)
   if(n>S.unlocked){sfx("no");toast("Beat level "+(n-1)+" to unlock");return;}sfx("click");startLevel(n);});
 $("skGrid").addEventListener("click",e=>{const b=e.target.closest(".skb");if(!b)return;auInit();const i=+b.dataset.i;
   if(S.owned.includes(i)){S.skin=i;save();sfx("click");toast(NAMES[i]+" equipped!");}
-  else if(S.coins>=skinCost(i)){S.coins-=skinCost(i);S.owned.push(i);S.skin=i;save();sfx("buy");vib(30);toast(NAMES[i]+" unlocked!");}
+  else if(S.coins>=skinCost(i)){zt("spend_virtual_currency",{virtual_currency_name:"coins",value:skinCost(i),item_name:NAMES[i],item_category:"skin"});S.coins-=skinCost(i);S.owned.push(i);S.skin=i;save();sfx("buy");vib(30);toast(NAMES[i]+" unlocked!");}
   else{sfx("no");toast("Need "+(skinCost(i)-S.coins)+" more coins");}
   openSkins();});
 
