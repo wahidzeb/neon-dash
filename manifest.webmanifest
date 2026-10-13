@@ -1,0 +1,42 @@
+{
+  "id": "/neon-dash/",
+  "name": "Neon Dash",
+  "short_name": "Neon Dash",
+  "description": "Neon Dash by Zaib: a one-tap neon rhythm runner. Jump over spikes and blocks across 200 levels, collect coins, unlock 44 glowing skins. Free in your browser on phone or desktop.",
+  "lang": "en",
+  "start_url": "/neon-dash/?source=pwa",
+  "scope": "/neon-dash/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#080b1c",
+  "background_color": "#080b1c",
+  "categories": [
+    "games"
+  ],
+  "icons": [
+    {
+      "src": "/neon-dash/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/neon-dash/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/neon-dash/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/neon-dash/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
